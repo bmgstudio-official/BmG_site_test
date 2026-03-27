@@ -51,7 +51,7 @@ function handleFirestoreError(error: unknown, operationType: OperationType, path
 const DEFAULT_PAGES: PageContent[] = [
   { pageId: '1', text: 'BmG studio', backgroundColor: '#000000', fontSize: '10vw', fontColor: '#FF007A' },
   { pageId: '2', text: 'We are a high-end minimalist creative studio focusing on digital experiences.', backgroundColor: '#000000', fontSize: '3rem', fontColor: '#FF007A' },
-  { pageId: '3', text: 'Project Alpha', backgroundColor: '#000000', imageUrl: 'https://picsum.photos/seed/alpha/1200/800', linkUrl: 'https://drive.google.com/drive/folders/1GZJN9uvYpVpEq66oMl9aiAKMjo89vtd9?usp=sharing', fontSize: '2rem', fontColor: '#FF007A' },
+  { pageId: '3', text: 'Project Alpha', backgroundColor: '#000000', imageUrl: 'https://picsum.photos/seed/alpha/1200/800', linkUrl: 'https://drive.google.com/file/d/1GZJN9uvYpVpEq66oMl9aiAKMjo89vtd9/view?usp=sharing', fontSize: '2rem', fontColor: '#FF007A' },
   { pageId: '4', text: 'Project Beta', backgroundColor: '#000000', imageUrl: 'https://picsum.photos/seed/beta/1200/800', linkUrl: 'https://drive.google.com/drive/folders/17-rT1EsmqfZP2dczz6tk4TbQpj3YuuOw?usp=sharing', fontSize: '2rem', fontColor: '#FF007A' },
   { pageId: '5', text: 'Let\'s create something amazing.', backgroundColor: '#000000', linkText: 'Contact Us', linkUrl: 'mailto:hello@bmgstudio.com', fontSize: '4rem', fontColor: '#FF007A' },
 ];
@@ -136,7 +136,7 @@ const Cursor = () => {
       <motion.div
         className={cn(
           "fixed top-0 left-0 pointer-events-none z-[9999] flex items-center justify-center",
-          isHoveringImage ? "w-12 h-12 bg-[#80ff00] rounded-full mix-blend-difference" : "w-6 h-6"
+          isHoveringImage ? "w-12 h-12 bg-[#ff5500] rounded-full mix-blend-difference" : "w-6 h-6"
         )}
         animate={{
           x: position.x - (isHoveringImage ? 24 : 0),
@@ -203,19 +203,21 @@ const Page = ({ content, index, isActive }: any) => {
         className="max-w-4xl"
       >
         {content.imageUrl && (
-          <a 
-            href={content.linkUrl} 
-            target="_blank" 
-            rel="noopener noreferrer"
-            className="image-hover-target block mb-8 overflow-hidden rounded-lg shadow-2xl"
-          >
-            <img 
-              src={content.imageUrl} 
-              alt={`Page ${content.pageId}`} 
-              className="w-full h-auto max-h-[60vh] object-cover transition-transform duration-700 hover:scale-110"
-              referrerPolicy="no-referrer"
-            />
-          </a>
+          <div className="image-hover-target block mb-8 overflow-hidden rounded-lg shadow-2xl">
+            <a 
+              href={content.linkUrl} 
+              target="_blank" 
+              rel="noopener noreferrer"
+              className="block"
+            >
+              <img 
+                src={content.imageUrl} 
+                alt={`Page ${content.pageId}`} 
+                className="w-full h-auto max-h-[60vh] object-cover transition-transform duration-700 hover:scale-110"
+                referrerPolicy="no-referrer"
+              />
+            </a>
+          </div>
         )}
         
         <div className="whitespace-pre-wrap leading-tight text-inherit markdown-body">
@@ -554,6 +556,15 @@ export default function App() {
   const [loading, setLoading] = useState(true);
   const containerRef = useRef<HTMLDivElement>(null);
 
+  const [isMobile, setIsMobile] = useState(false);
+
+  useEffect(() => {
+    const checkMobile = () => setIsMobile(window.innerWidth < 768);
+    checkMobile();
+    window.addEventListener('resize', checkMobile);
+    return () => window.removeEventListener('resize', checkMobile);
+  }, []);
+
   useEffect(() => {
     const unsubscribeAuth = onAuthStateChanged(auth, (u) => setUser(u));
     
@@ -618,25 +629,39 @@ export default function App() {
   useEffect(() => {
     // Touch Swipe Navigation
     let touchStartX = 0;
+    let touchStartY = 0;
     let touchEndX = 0;
+    let touchEndY = 0;
     const minSwipeDistance = 50;
 
     const handleTouchStart = (e: TouchEvent) => {
       touchStartX = e.targetTouches[0].clientX;
+      touchStartY = e.targetTouches[0].clientY;
     };
 
     const handleTouchMove = (e: TouchEvent) => {
       touchEndX = e.targetTouches[0].clientX;
+      touchEndY = e.targetTouches[0].clientY;
     };
 
     const handleTouchEnd = () => {
-      const distance = touchStartX - touchEndX;
-      if (Math.abs(distance) > minSwipeDistance && touchEndX !== 0) {
-        if (distance > 0) nextPage();
-        else prevPage();
+      if (isMobile) {
+        const distance = touchStartY - touchEndY;
+        if (Math.abs(distance) > minSwipeDistance && touchEndY !== 0) {
+          if (distance > 0) nextPage();
+          else prevPage();
+        }
+      } else {
+        const distance = touchStartX - touchEndX;
+        if (Math.abs(distance) > minSwipeDistance && touchEndX !== 0) {
+          if (distance > 0) nextPage();
+          else prevPage();
+        }
       }
       touchStartX = 0;
+      touchStartY = 0;
       touchEndX = 0;
+      touchEndY = 0;
     };
 
     const handleKeyDown = (e: KeyboardEvent) => {
@@ -659,7 +684,7 @@ export default function App() {
       window.removeEventListener('touchmove', handleTouchMove);
       window.removeEventListener('touchend', handleTouchEnd);
     };
-  }, [pages.length]);
+  }, [pages.length, isMobile]);
 
   if (loading && pages.length === 0) {
     return (
@@ -679,52 +704,63 @@ export default function App() {
         <Route path="/" element={
           <>
             {/* Navigation Arrows */}
-            <div className="fixed inset-y-0 left-0 w-24 flex items-center justify-center z-40 pointer-events-none">
+            <div className={cn(
+              "fixed z-40 pointer-events-none flex items-center justify-center",
+              isMobile ? "inset-x-0 top-16 h-24" : "inset-y-0 left-0 w-24"
+            )}>
               {currentPage > 0 && (
                 <button 
                   onClick={prevPage}
                   className="p-4 pointer-events-auto hover:scale-125 transition-transform"
                 >
-                  <ChevronLeft className="w-12 h-12" />
+                  {isMobile ? <ChevronLeft className="w-12 h-12 rotate-90" /> : <ChevronLeft className="w-12 h-12" />}
                 </button>
               )}
             </div>
-            <div className="fixed inset-y-0 right-0 w-24 flex items-center justify-center z-40 pointer-events-none">
+            <div className={cn(
+              "fixed z-40 pointer-events-none flex items-center justify-center",
+              isMobile ? "inset-x-0 bottom-16 h-24" : "inset-y-0 right-0 w-24"
+            )}>
               {currentPage < pages.length - 1 && (
                 <button 
                   onClick={nextPage}
                   className="p-4 pointer-events-auto hover:scale-125 transition-transform"
                 >
-                  <ChevronRight className="w-12 h-12" />
+                  {isMobile ? <ChevronRight className="w-12 h-12 rotate-90" /> : <ChevronRight className="w-12 h-12" />}
                 </button>
               )}
             </div>
 
-            {/* Horizontal Container */}
+            {/* Container */}
             <motion.div 
               ref={containerRef}
-              className="flex h-full"
-              animate={{ x: `-${currentPage * 100}%` }}
+              className={cn("flex h-full", isMobile ? "flex-col" : "flex-row")}
+              animate={isMobile ? { y: `-${currentPage * 100}%` } : { x: `-${currentPage * 100}%` }}
               transition={{ 
                 duration: 1.4, 
-                ease: [0.6, 0.01, -0.05, 0.95] // Custom smooth cubic bezier
+                ease: [0.6, 0.01, -0.05, 0.95] 
               }}
             >
               {pages.map((page, i) => (
-                <div key={page.pageId} className="min-w-full h-full">
+                <div key={page.pageId} className={cn("h-full", isMobile ? "min-h-full" : "min-w-full")}>
                   <Page content={page} index={i} isActive={currentPage === i} />
                 </div>
               ))}
             </motion.div>
 
             {/* Page Indicator */}
-            <div className="fixed bottom-8 left-1/2 -translate-x-1/2 flex gap-3 z-40">
+            <div className={cn(
+              "fixed z-40 flex gap-3",
+              isMobile ? "right-8 top-1/2 -translate-y-1/2 flex-col" : "bottom-8 left-1/2 -translate-x-1/2 flex-row"
+            )}>
               {pages.map((_, i) => (
                 <div 
                   key={i}
                   className={cn(
-                    "w-2 h-2 rounded-full transition-all duration-500",
-                    currentPage === i ? "bg-[#FF007A] w-8" : "bg-[#FF007A]/20"
+                    "rounded-full transition-all duration-500",
+                    isMobile 
+                      ? (currentPage === i ? "bg-[#FF007A] h-8 w-2" : "bg-[#FF007A]/20 w-2 h-2")
+                      : (currentPage === i ? "bg-[#FF007A] w-8 h-2" : "bg-[#FF007A]/20 w-2 h-2")
                   )}
                 />
               ))}
