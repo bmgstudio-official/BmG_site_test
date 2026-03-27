@@ -1,6 +1,7 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { ChevronLeft, ChevronRight, Settings, LogOut, ExternalLink, Upload, Save, Loader2 } from 'lucide-react';
+import ReactMarkdown from 'react-markdown';
+import { ChevronLeft, ChevronRight, Settings, LogOut, ExternalLink, Upload, Save, Loader2, Bold } from 'lucide-react';
 import { db, auth } from './firebase';
 import { doc, getDoc, setDoc, onSnapshot, collection, getDocs } from 'firebase/firestore';
 import { onAuthStateChanged, signInWithPopup, GoogleAuthProvider, signOut } from 'firebase/auth';
@@ -62,10 +63,19 @@ const DEFAULT_SETTINGS: GlobalSettings = { logoText: 'BmG studio' };
 const Cursor = () => {
   const [position, setPosition] = useState({ x: 0, y: 0 });
   const [isHoveringImage, setIsHoveringImage] = useState(false);
+  const [isVisible, setIsVisible] = useState(false);
 
   useEffect(() => {
     const handleMouseMove = (e: MouseEvent) => {
       setPosition({ x: e.clientX, y: e.clientY });
+      if (!isVisible) setIsVisible(true);
+    };
+
+    const handleTouchMove = (e: TouchEvent) => {
+      if (e.touches[0]) {
+        setPosition({ x: e.touches[0].clientX, y: e.touches[0].clientY });
+        if (!isVisible) setIsVisible(true);
+      }
     };
 
     const handleMouseOver = (e: MouseEvent) => {
@@ -78,14 +88,18 @@ const Cursor = () => {
     };
 
     window.addEventListener('mousemove', handleMouseMove);
+    window.addEventListener('touchmove', handleTouchMove);
     window.addEventListener('mouseover', handleMouseOver);
     return () => {
       window.removeEventListener('mousemove', handleMouseMove);
+      window.removeEventListener('touchmove', handleTouchMove);
       window.removeEventListener('mouseover', handleMouseOver);
     };
-  }, []);
+  }, [isVisible]);
 
-  const Arrow = ({ opacity = 1, scale = 1 }: { opacity?: number, scale?: number }) => (
+  if (!isVisible) return null;
+
+  const Arrow = ({ opacity = 1, scale = 1, color = "#FF007A" }: { opacity?: number, scale?: number, color?: string }) => (
     <svg 
       width="24" 
       height="24" 
@@ -94,7 +108,7 @@ const Cursor = () => {
       xmlns="http://www.w3.org/2000/svg" 
       style={{ opacity, transform: `scale(${scale}) rotate(-135deg)` }}
     >
-      <path d="M3 3L21 12L3 21L7 12L3 3Z" stroke="#FF007A" strokeWidth="1" fill="#FF007A" fillOpacity="1" />
+      <path d="M3 3L21 12L3 21L7 12L3 3Z" stroke={color} strokeWidth="1" fill={color} fillOpacity="1" />
     </svg>
   );
 
@@ -108,7 +122,13 @@ const Cursor = () => {
           animate={{ x: position.x, y: position.y }}
           transition={{ type: 'spring', damping: 30 + i * 10, stiffness: 200 - i * 40, mass: 0.5 }}
         >
-          {!isHoveringImage && <Arrow opacity={0.4 - i * 0.1} scale={0.9 - i * 0.1} />}
+          {!isHoveringImage && (
+            <Arrow 
+              opacity={0.4 - i * 0.1} 
+              scale={0.9 - i * 0.1} 
+              color="#FF007A" 
+            />
+          )}
         </motion.div>
       ))}
 
@@ -116,7 +136,7 @@ const Cursor = () => {
       <motion.div
         className={cn(
           "fixed top-0 left-0 pointer-events-none z-[9999] flex items-center justify-center",
-          isHoveringImage ? "w-12 h-12 bg-[#FF007A] rounded-full mix-blend-difference" : "w-6 h-6"
+          isHoveringImage ? "w-12 h-12 bg-[#80ff00] rounded-full mix-blend-difference" : "w-6 h-6"
         )}
         animate={{
           x: position.x - (isHoveringImage ? 24 : 0),
@@ -125,16 +145,16 @@ const Cursor = () => {
         }}
         transition={{ type: 'spring', damping: 25, stiffness: 400, mass: 0.1 }}
       >
-        {!isHoveringImage && <Arrow />}
+        {!isHoveringImage && <Arrow color="#FF007A" />}
       </motion.div>
     </>
   );
 };
 
-const Navbar = ({ settings, user }: { settings: GlobalSettings, user: any }) => (
+const Navbar = ({ settings, user, onLogoClick }: { settings: GlobalSettings, user: any, onLogoClick: () => void }) => (
   <nav className="fixed top-0 left-0 w-full p-8 flex justify-between items-start z-50 pointer-events-none">
     <div className="pointer-events-auto">
-      <Link to="/" className="block">
+      <Link to="/" onClick={onLogoClick} className="block">
         {settings.logoImage ? (
           <img 
             src={settings.logoImage} 
@@ -198,9 +218,9 @@ const Page = ({ content, index, isActive }: any) => {
           </a>
         )}
         
-        <h2 className="whitespace-pre-wrap leading-tight">
-          {content.text}
-        </h2>
+        <div className="whitespace-pre-wrap leading-tight text-inherit markdown-body">
+          <ReactMarkdown>{content.text}</ReactMarkdown>
+        </div>
 
         {content.pageId === '5' && content.linkUrl && (
           <a 
@@ -270,6 +290,29 @@ const AdminDashboard = () => {
     }
   };
 
+  const toggleBold = (idx: number) => {
+    const textarea = document.getElementById(`textarea-${idx}`) as HTMLTextAreaElement;
+    if (!textarea) return;
+
+    const start = textarea.selectionStart;
+    const end = textarea.selectionEnd;
+    const text = pages[idx].text;
+    const selectedText = text.substring(start, end);
+
+    if (selectedText) {
+      const newText = text.substring(0, start) + `**${selectedText}**` + text.substring(end);
+      const newPages = [...pages];
+      newPages[idx].text = newText;
+      setPages(newPages);
+      
+      // Reset selection after state update
+      setTimeout(() => {
+        textarea.focus();
+        textarea.setSelectionRange(start + 2, end + 2);
+      }, 0);
+    }
+  };
+
   if (loading) return <div className="fixed inset-0 bg-black/90 z-[100] flex items-center justify-center"><Loader2 className="w-8 h-8 animate-spin text-[#FF007A]" /></div>;
 
   if (!user) {
@@ -334,7 +377,7 @@ const AdminDashboard = () => {
                 <input 
                   type="text" 
                   value={settings?.logoText || ''} 
-                  onChange={e => setSettings(s => s ? { ...s, logoText: e.target.value } : { logoText: e.target.value })}
+                  onChange={e => setSettings(s => s ? { ...s, logoText: e.target.value } : { logoText: e.target.value, logoImage: '' })}
                   className="w-full bg-zinc-800 border border-zinc-700 rounded-lg p-3 text-white focus:outline-none focus:border-[#FF007A]"
                 />
               </div>
@@ -345,7 +388,7 @@ const AdminDashboard = () => {
                     type="text" 
                     placeholder="https://example.com/logo.png"
                     value={settings?.logoImage || ''} 
-                    onChange={e => setSettings(s => s ? { ...s, logoImage: e.target.value } : { logoImage: e.target.value })}
+                    onChange={e => setSettings(s => s ? { ...s, logoImage: e.target.value } : { logoImage: e.target.value, logoText: '' })}
                     className="flex-1 bg-zinc-800 border border-zinc-700 rounded-lg p-3 text-white focus:outline-none focus:border-[#FF007A]"
                   />
                   {settings?.logoImage && (
@@ -365,8 +408,18 @@ const AdminDashboard = () => {
               <div className="grid md:grid-cols-2 gap-8">
                 <div className="space-y-4">
                   <div>
-                    <label className="block text-sm font-medium text-zinc-400 mb-2">Main Text</label>
+                    <div className="flex justify-between items-center mb-2">
+                      <label className="block text-sm font-medium text-zinc-400">Main Text (Markdown supported)</label>
+                      <button 
+                        onClick={() => toggleBold(idx)}
+                        className="p-1.5 bg-zinc-800 hover:bg-zinc-700 rounded text-zinc-400 hover:text-white transition-colors"
+                        title="Bold Selected Text"
+                      >
+                        <Bold className="w-4 h-4" />
+                      </button>
+                    </div>
                     <textarea 
+                      id={`textarea-${idx}`}
                       value={page.text} 
                       onChange={e => {
                         const newPages = [...pages];
@@ -563,6 +616,29 @@ export default function App() {
   const prevPage = () => setCurrentPage(p => Math.max(0, p - 1));
 
   useEffect(() => {
+    // Touch Swipe Navigation
+    let touchStartX = 0;
+    let touchEndX = 0;
+    const minSwipeDistance = 50;
+
+    const handleTouchStart = (e: TouchEvent) => {
+      touchStartX = e.targetTouches[0].clientX;
+    };
+
+    const handleTouchMove = (e: TouchEvent) => {
+      touchEndX = e.targetTouches[0].clientX;
+    };
+
+    const handleTouchEnd = () => {
+      const distance = touchStartX - touchEndX;
+      if (Math.abs(distance) > minSwipeDistance && touchEndX !== 0) {
+        if (distance > 0) nextPage();
+        else prevPage();
+      }
+      touchStartX = 0;
+      touchEndX = 0;
+    };
+
     const handleKeyDown = (e: KeyboardEvent) => {
       if (e.key === 'ArrowRight') nextPage();
       if (e.key === 'ArrowLeft') prevPage();
@@ -571,8 +647,18 @@ export default function App() {
         navigate('/admin');
       }
     };
+
     window.addEventListener('keydown', handleKeyDown);
-    return () => window.removeEventListener('keydown', handleKeyDown);
+    window.addEventListener('touchstart', handleTouchStart);
+    window.addEventListener('touchmove', handleTouchMove);
+    window.addEventListener('touchend', handleTouchEnd);
+
+    return () => {
+      window.removeEventListener('keydown', handleKeyDown);
+      window.removeEventListener('touchstart', handleTouchStart);
+      window.removeEventListener('touchmove', handleTouchMove);
+      window.removeEventListener('touchend', handleTouchEnd);
+    };
   }, [pages.length]);
 
   if (loading && pages.length === 0) {
@@ -586,7 +672,7 @@ export default function App() {
   return (
     <div className="h-screen w-screen overflow-hidden bg-black text-[#FF007A] selection:bg-[#FF007A] selection:text-black cursor-none">
       <Cursor />
-      <Navbar settings={settings} user={user} />
+      <Navbar settings={settings} user={user} onLogoClick={() => setCurrentPage(0)} />
       
       <Routes>
         <Route path="/admin" element={<AdminDashboard />} />
