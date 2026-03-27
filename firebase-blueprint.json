@@ -1,0 +1,41 @@
+{
+  "entities": {
+    "GlobalSettings": {
+      "title": "Global Settings",
+      "description": "Global configuration for the website.",
+      "type": "object",
+      "properties": {
+        "logoText": { "type": "string", "description": "Text for the logo." },
+        "logoImage": { "type": "string", "description": "URL for the logo image (optional)." }
+      },
+      "required": ["logoText"]
+    },
+    "PageContent": {
+      "title": "Page Content",
+      "description": "Content and styling for a specific page.",
+      "type": "object",
+      "properties": {
+        "pageId": { "type": "string", "description": "Unique identifier for the page (1-5)." },
+        "text": { "type": "string", "description": "Main text content of the page." },
+        "fontFamily": { "type": "string", "description": "Font family for the text." },
+        "fontColor": { "type": "string", "description": "Hex color code for the text." },
+        "fontSize": { "type": "string", "description": "Font size (e.g., '5rem')." },
+        "backgroundColor": { "type": "string", "description": "Hex color code for the background." },
+        "imageUrl": { "type": "string", "description": "URL for the image (Pages 3 & 4)." },
+        "linkUrl": { "type": "string", "description": "URL for the hyperlink (Pages 3, 4, 5)." },
+        "linkText": { "type": "string", "description": "Text for the hyperlink (Page 5)." }
+      },
+      "required": ["pageId", "text", "backgroundColor"]
+    }
+  },
+  "firestore": {
+    "/settings/global": {
+      "schema": "GlobalSettings",
+      "description": "Global website settings."
+    },
+    "/pages/{pageId}": {
+      "schema": "PageContent",
+      "description": "Content for each of the 5 pages."
+    }
+  }
+}
